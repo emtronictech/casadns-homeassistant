@@ -60,6 +60,8 @@ class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_domains"
             elif not token:
                 errors["base"] = "invalid_token"
+            elif interval < 15:
+                errors["base"] = "invalid_interval"
 
             if not errors:
                 return self.async_create_entry(
@@ -73,14 +75,9 @@ class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         data_schema = vol.Schema(
             {
-                vol.Required(
-                    CONF_DOMAINS,
-                    description={
-                        "suggested_value": "domain1,domain2,domain3",
-                    },
-                ): str,
+                vol.Required(CONF_DOMAINS): str,
                 vol.Required(CONF_TOKEN): str,
-                vol.Optional(CONF_INTERVAL, default=DEFAULT_INTERVAL): int,
+                vol.Optional(CONF_INTERVAL, default=DEFAULT_INTERVAL): vol.All(int, vol.Range(min=15)),
             }
         )
 
@@ -124,6 +121,8 @@ class CasaDNSOptionsFlowHandler(config_entries.OptionsFlow):
 
             if not normalized_domains:
                 errors["base"] = "invalid_domains"
+            elif interval < 15:
+                errors["base"] = "invalid_interval"    
 
             if not errors:
                 # Only store options that can be changed
@@ -144,7 +143,7 @@ class CasaDNSOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_INTERVAL,
                     default=current.get(CONF_INTERVAL, DEFAULT_INTERVAL),
-                ): int,
+                ): vol.All(int, vol.Range(min=15)),
             }
         )
 
