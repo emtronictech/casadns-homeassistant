@@ -6,8 +6,15 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, ATTR_PUBLIC_IP
+from .const import (
+    DOMAIN,
+    ATTR_PUBLIC_IP,
+    ATTR_LAST_STATUS,
+    ATTR_LAST_ERROR,
+    ATTR_LAST_UPDATED,
+)
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -37,7 +44,7 @@ class CasaDNSPublicIPSensor(SensorEntity):
         """Register callbacks when entity is added."""
 
         def _handle_update() -> None:
-            # Called from manager when IP changes
+            # Called from manager when IP or status changes
             self.async_write_ha_state()
 
         # Register listener with manager
@@ -55,6 +62,28 @@ class CasaDNSPublicIPSensor(SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra attributes."""
         attrs: dict[str, Any] = {}
+
         if self._manager.last_ip:
             attrs[ATTR_PUBLIC_IP] = self._manager.last_ip
+
+        if self._manager.last_status is not None:
+            attrs[ATTR_LAST_STATUS] = self._manager.last_status
+
+        if self._manager.last_error:
+            attrs[ATTR_LAST_ERROR] = self._manager.last_error
+
+        if self._manager.last_updated:
+            attrs[ATTR_LAST_UPDATED] =
+                dt_util.as_local(self._manager.last_updated).isoformat()
+
         return attrs
+
+    @property
+    def device_info(self) -> dict[str, Any]:
+        """Return device info so the sensor is grouped under one CasaDNS device."""
+        return {
+            "identifiers": {(DOMAIN, self._entry.entry_id)},
+            "name": "CasaDNS",
+            "manufacturer": "CasaDNS",
+            "model": "DDNS",
+        }
