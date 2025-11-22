@@ -87,4 +87,5 @@ class CasaDNSPublicIPSensor(SensorEntity):
             "name": "CasaDNS DDNS",
             "manufacturer": "EMTRONIC",
             "model": "CasaDNS",
+            "configuration_url": "https://raw.githubusercontent.com/emtronictech/casadns-homeassistant/main/custom_components/casadns/logo.png"
         }
