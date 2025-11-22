@@ -1,0 +1,3 @@
+update_now:
+  name: CasaDNS update
+  description: CasaDNS update call, ignoring IP cache
