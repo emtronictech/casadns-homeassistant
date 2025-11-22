@@ -14,7 +14,8 @@
     },
     "error": {
       "invalid_domains": "Please enter at least one valid domain (comma-separated, without .casadns.eu).",
-      "invalid_token": "Please enter a valid API token."
+      "invalid_token": "Please enter a valid API token.",
+      "invalid_interval": "Interval must be 15 minutes or higher."
     }
   },
   "options": {
@@ -29,7 +30,8 @@
       }
     },
     "error": {
-      "invalid_domains": "Please enter at least one valid domain (comma-separated, without .casadns.eu)."
+      "invalid_domains": "Please enter at least one valid domain (comma-separated, without .casadns.eu).",
+      "invalid_interval": "Interval must be 15 minutes or higher."
     }
   },
   "entity": {
