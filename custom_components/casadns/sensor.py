@@ -25,7 +25,7 @@ class CasaDNSPublicIPSensor(SensorEntity):
     """Sensor that exposes the current public IP used by CasaDNS."""
 
     _attr_has_entity_name = True
-    _attr_name = "CasaDNS Public IP"
+    _attr_translation_key = "public_ip"
     _attr_icon = "mdi:ip-outline"
 
     def __init__(self, manager, entry: ConfigEntry) -> None:
