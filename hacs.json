@@ -1,0 +1,6 @@
+{
+  "name": "CasaDNS DDNS",
+  "content_in_root": false,
+  "homeassistant": "2025.0.0",
+  "hacs": "2.0.0"
+}
