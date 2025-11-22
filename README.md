@@ -2,7 +2,8 @@
 
 ## Custom component for HACS in Home Assistant
 
-![Static Badge](https://img.shields.io/badge/HACS-Custom-blue?style=flat)
+[![Static Badge](https://img.shields.io/badge/HACS-Custom-41BDF5?style=for-the-badge&logo=homeassistantcommunitystore&logoColor=white)](https://github.com/hacs/integration)
+[![GitHub Release](https://img.shields.io/github/v/release/emtronictech/casadns-homeassistant?include_prereleases&style=for-the-badge)](https://github.com/emtronictech/casadns-homeassistant/releases)
 
 CasaDNS is a lightweight Dynamic DNS integration for Home Assistant.
 It updates your CasaDNS DNS records automatically whenever your Home Assistant system’s public IP address changes.
