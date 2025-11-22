@@ -1,0 +1,35 @@
+{
+  "title": "CasaDNS",
+  "config": {
+    "step": {
+      "user": {
+        "title": "CasaDNS configuration",
+        "description": "Configure the CasaDNS integration. Enter your CasaDNS domains and API token.",
+        "data": {
+          "domains": "Domains",
+          "token": "API token",
+          "interval": "Update interval (minutes)"
+        }
+      }
+    },
+    "error": {
+      "invalid_domains": "Please enter at least one valid domain (comma-separated, without .casadns.eu).",
+      "invalid_token": "Please enter a valid API token."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "public_ip": {
+        "name": "CasaDNS Public IP",
+        "state": {
+        }
+      }
+    }
+  },
+  "services": {
+    "update_now": {
+      "name": "Force CasaDNS update",
+      "description": "Force a CasaDNS DNS update, ignoring the cached public IP."
+    }
+  }
+}
