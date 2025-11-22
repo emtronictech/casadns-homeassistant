@@ -84,7 +84,7 @@ class CasaDNSPublicIPSensor(SensorEntity):
         """Return device info so the sensor is grouped under one CasaDNS device."""
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
-            "name": "CasaDNS",
-            "manufacturer": "CasaDNS",
-            "model": "DDNS",
+            "name": "CasaDNS DDNS",
+            "manufacturer": "EMTRONIC",
+            "model": "CasaDNS",
         }
