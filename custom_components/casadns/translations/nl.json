@@ -14,7 +14,8 @@
     },
     "error": {
       "invalid_domains": "Vul minimaal één geldig domein in (kommagescheiden, zonder .casadns.eu).",
-      "invalid_token": "Vul een geldig API-token in."
+      "invalid_token": "Vul een geldig API-token in.",
+      "invalid_interval": "Interval moet minimaal 15 minuten zijn."
     }
   },
   "options": {
@@ -29,7 +30,8 @@
       }
     },
     "error": {
-      "invalid_domains": "Vul minimaal één geldig domein in (kommagescheiden, zonder .casadns.eu)."
+      "invalid_domains": "Vul minimaal één geldig domein in (kommagescheiden, zonder .casadns.eu).",
+      "invalid_interval": "Interval moet minimaal 15 minuten zijn."
     }
   },
   "entity": {
