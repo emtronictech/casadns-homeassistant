@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "CasaDNS configuration",
-        "description": "Configure the CasaDNS integration. Enter your CasaDNS domains and API token.",
+        "description": "Configure the CasaDNS integration by entering your CasaDNS domain(s) and API-token.",
         "data": {
           "domains": "Domains",
           "token": "API token",
@@ -22,9 +22,9 @@
     "step": {
       "init": {
         "title": "CasaDNS options",
-        "description": "Adjust the domains and update interval used by the CasaDNS integration.",
+        "description": "Adjust the domain(s) and update interval used by the CasaDNS integration.",
         "data": {
-          "domains": "Domains",
+          "domains": "Domain(s)",
           "interval": "Update interval (minutes)"
         }
       }
