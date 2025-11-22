@@ -11,6 +11,7 @@ from aiohttp.client_exceptions import ClientError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import aiohttp_client, event
+from homeassistant.util import dt as dt_util
 
 from .const import (
     DOMAIN,
@@ -31,18 +32,41 @@ class CasaDNSManager:
         self.hass = hass
         self.entry = entry
 
-        self._domains: str = entry.data[CONF_DOMAINS]
-        self._token: str = entry.data[CONF_TOKEN]
-        self._interval_minutes: int = entry.data.get(CONF_INTERVAL, DEFAULT_INTERVAL)
+        # Merge data + options (options override data)
+        cfg = dict(entry.data)
+        cfg.update(entry.options or {})
+
+        self._domains: str = cfg.get(CONF_DOMAINS, entry.data[CONF_DOMAINS])
+        self._token: str = cfg.get(CONF_TOKEN, entry.data[CONF_TOKEN])
+        self._interval_minutes: int = cfg.get(CONF_INTERVAL, DEFAULT_INTERVAL)
 
         self._unsub_timer = None
         self._last_ip: str | None = None
+        self._last_status: int | None = None
+        self._last_error: str | None = None
+        self._last_updated = None  # datetime | None
+
         self._listeners: list[Callable[[], None]] = []
 
     @property
     def last_ip(self) -> str | None:
         """Return last known public IP."""
         return self._last_ip
+
+    @property
+    def last_status(self) -> int | None:
+        """Return last HTTP status of CasaDNS call."""
+        return self._last_status
+
+    @property
+    def last_error(self) -> str | None:
+        """Return last error message, if any."""
+        return self._last_error
+
+    @property
+    def last_updated(self):
+        """Return datetime of last successful CasaDNS call."""
+        return self._last_updated
 
     def register_listener(self, callback: Callable[[], None]) -> None:
         """Register a callback to be called when data changes."""
@@ -55,7 +79,7 @@ class CasaDNSManager:
             self.hass, self._async_timer_callback, interval
         )
 
-        # Optional: initial run at startup
+        # Initial run at startup
         await self.async_update_dns(force=True)
 
     async def async_stop(self) -> None:
@@ -84,7 +108,7 @@ class CasaDNSManager:
 
         _LOGGER.info("Public IP changed from %s to %s", old_ip, current_ip)
 
-        # Notify listeners (e.g. sensor) before/after CasaDNS call
+        # Notify listeners (e.g. sensor) of new IP
         for callback in list(self._listeners):
             try:
                 callback()
@@ -104,6 +128,7 @@ class CasaDNSManager:
                 return (await resp.text()).strip()
         except (ClientError, asyncio.TimeoutError) as err:
             _LOGGER.error("Error getting public IP: %s", err)
+            self._last_error = str(err)
             return None
 
     async def _async_call_casadns(self) -> None:
@@ -127,6 +152,10 @@ class CasaDNSManager:
                 ssl=False,  # remove or set to True if you use a valid certificate
             ) as resp:
                 text = await resp.text()
+                self._last_status = resp.status
+                self._last_updated = dt_util.utcnow()
+                self._last_error = None
+
                 if resp.status != 200:
                     _LOGGER.error(
                         "CasaDNS update failed: HTTP %s - %s", resp.status, text
@@ -134,8 +163,8 @@ class CasaDNSManager:
                 else:
                     _LOGGER.debug("CasaDNS update OK: %s", text)
         except (ClientError, asyncio.TimeoutError) as err:
+            self._last_error = str(err)
             _LOGGER.error("Error calling CasaDNS: %s", err)
-
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up CasaDNS from a config entry."""
@@ -154,8 +183,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Forward to platforms (sensor)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    return True
+    # Reload entry when options are updated
+    entry.async_on_unload(
+        entry.add_update_listener(async_reload_entry)
+    )
 
+    return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a CasaDNS config entry."""
@@ -175,3 +208,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_remove(DOMAIN, "update_now")
 
     return unload_ok
+
+async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload CasaDNS config entry when options are updated."""
+    await hass.config_entries.async_reload(entry.entry_id)
