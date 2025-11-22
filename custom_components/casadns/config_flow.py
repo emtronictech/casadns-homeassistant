@@ -5,6 +5,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
 from .const import (
@@ -15,16 +16,9 @@ from .const import (
     DEFAULT_INTERVAL,
 )
 
+
 def _normalize_domains(raw: str) -> str:
-    """Normalize CasaDNS domains.
-
-    Input examples:
-      " home.casadns.eu , SERVER , office "
-      "home,server,office"
-
-    Output:
-      "home,server,office"
-    """
+    """Normalize CasaDNS domains."""
     parts: list[str] = []
 
     for item in raw.split(","):
@@ -41,6 +35,7 @@ def _normalize_domains(raw: str) -> str:
             parts.append(label)
 
     return ",".join(parts)
+
 
 class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for CasaDNS."""
@@ -81,7 +76,7 @@ class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_DOMAINS,
                     description={
-                        "suggested_value": "subdomain1,subdomain2,subdomain3",
+                        "suggested_value": "domain1,domain2,domain3",
                     },
                 ): str,
                 vol.Required(CONF_TOKEN): str,
@@ -93,7 +88,68 @@ class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=data_schema,
             errors=errors,
-            description_placeholders={
-                "domains_help": "Comma separated CasaDNS domains without .casadns.eu",
-            },
+        )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Return the options flow handler."""
+        return CasaDNSOptionsFlowHandler(config_entry)
+
+
+class CasaDNSOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle CasaDNS options (domains, interval)."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize CasaDNS options flow."""
+        self._config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the CasaDNS options."""
+        errors: dict[str, str] = {}
+
+        # Current values: options override data
+        current = dict(self._config_entry.data)
+        current.update(self._config_entry.options or {})
+
+        if user_input is not None:
+            raw_domains = user_input.get(CONF_DOMAINS, "")
+            interval = user_input.get(CONF_INTERVAL, DEFAULT_INTERVAL)
+
+            normalized_domains = _normalize_domains(raw_domains)
+
+            if not normalized_domains:
+                errors["base"] = "invalid_domains"
+
+            if not errors:
+                # Only store options that can be changed
+                return self.async_create_entry(
+                    title="",
+                    data={
+                        CONF_DOMAINS: normalized_domains,
+                        CONF_INTERVAL: interval,
+                    },
+                )
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_DOMAINS,
+                    default=current.get(CONF_DOMAINS, ""),
+                ): str,
+                vol.Optional(
+                    CONF_INTERVAL,
+                    default=current.get(CONF_INTERVAL, DEFAULT_INTERVAL),
+                ): int,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=data_schema,
+            errors=errors,
         )
