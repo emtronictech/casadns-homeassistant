@@ -17,12 +17,25 @@
       "invalid_token": "Please enter a valid API token."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "CasaDNS options",
+        "description": "Adjust the domains and update interval used by the CasaDNS integration.",
+        "data": {
+          "domains": "Domains",
+          "interval": "Update interval (minutes)"
+        }
+      }
+    },
+    "error": {
+      "invalid_domains": "Please enter at least one valid domain (comma-separated, without .casadns.eu)."
+    }
+  },
   "entity": {
     "sensor": {
       "public_ip": {
-        "name": "CasaDNS Public IP",
-        "state": {
-        }
+        "name": "CasaDNS Public IP"
       }
     }
   },
