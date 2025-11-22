@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import timedelta
+from typing import Callable
 
 import aiohttp
 from aiohttp.client_exceptions import ClientError
 
-from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import aiohttp_client, event
 
 from .const import (
@@ -20,19 +22,31 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+PLATFORMS: list[str] = ["sensor"]
 
 class CasaDNSManager:
-    """Handle CasaDNS periodic updates."""
+    """Handle CasaDNS periodic updates and state."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
         self.entry = entry
+
         self._domains: str = entry.data[CONF_DOMAINS]
         self._token: str = entry.data[CONF_TOKEN]
         self._interval_minutes: int = entry.data.get(CONF_INTERVAL, DEFAULT_INTERVAL)
 
         self._unsub_timer = None
         self._last_ip: str | None = None
+        self._listeners: list[Callable[[], None]] = []
+
+    @property
+    def last_ip(self) -> str | None:
+        """Return last known public IP."""
+        return self._last_ip
+
+    def register_listener(self, callback: Callable[[], None]) -> None:
+        """Register a callback to be called when data changes."""
+        self._listeners.append(callback)
 
     async def async_start(self) -> None:
         """Start periodic update task."""
@@ -41,9 +55,12 @@ class CasaDNSManager:
             self.hass, self._async_timer_callback, interval
         )
 
+        # Optional: initial run at startup
+        await self.async_update_dns(force=True)
+
     async def async_stop(self) -> None:
         """Stop periodic update task."""
-        if self._unsub_timer:
+        if self._unsub_timer is not None:
             self._unsub_timer()
             self._unsub_timer = None
 
@@ -62,8 +79,17 @@ class CasaDNSManager:
             _LOGGER.debug("Public IP unchanged (%s), skipping CasaDNS update", current_ip)
             return
 
-        _LOGGER.info("Public IP changed from %s to %s, calling CasaDNS", self._last_ip, current_ip)
+        old_ip = self._last_ip
         self._last_ip = current_ip
+
+        _LOGGER.info("Public IP changed from %s to %s", old_ip, current_ip)
+
+        # Notify listeners (e.g. sensor) before/after CasaDNS call
+        for callback in list(self._listeners):
+            try:
+                callback()
+            except Exception:
+                _LOGGER.exception("Error in CasaDNS listener callback")
 
         await self._async_call_casadns()
 
@@ -71,7 +97,6 @@ class CasaDNSManager:
         """Retrieve public IP using external service."""
         session = aiohttp_client.async_get_clientsession(self.hass)
         try:
-            # Simple plaintext IP service, returns "x.x.x.x"
             async with session.get("https://api.ipify.org", timeout=10) as resp:
                 if resp.status != 200:
                     _LOGGER.warning("Error getting public IP: HTTP %s", resp.status)
@@ -86,7 +111,7 @@ class CasaDNSManager:
         session = aiohttp_client.async_get_clientsession(self.hass)
 
         url = (
-            f"https://casadns.eu/update"
+            "https://casadns.eu/update"
             f"?domains={self._domains}"
             f"&token={self._token}"
         )
@@ -99,11 +124,13 @@ class CasaDNSManager:
                     "Content-Type": "text/html",
                     "User-Agent": "Home Assistant CasaDNS",
                 },
-                ssl=False,
+                ssl=False,  # remove or set to True if you use a valid certificate
             ) as resp:
                 text = await resp.text()
                 if resp.status != 200:
-                    _LOGGER.error("CasaDNS update failed: HTTP %s - %s", resp.status, text)
+                    _LOGGER.error(
+                        "CasaDNS update failed: HTTP %s - %s", resp.status, text
+                    )
                 else:
                     _LOGGER.debug("CasaDNS update OK: %s", text)
         except (ClientError, asyncio.TimeoutError) as err:
@@ -115,8 +142,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     manager = CasaDNSManager(hass, entry)
     await manager.async_start()
 
-    if DOMAIN not in hass.data:
-        hass.data[DOMAIN] = {}
+    hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = manager
 
     async def handle_update_now(call: ServiceCall) -> None:
@@ -125,19 +151,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.services.async_register(DOMAIN, "update_now", handle_update_now)
 
+    # Forward to platforms (sensor)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a CasaDNS config entry."""
+    # Stop manager
     manager: CasaDNSManager | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)
     if manager:
         await manager.async_stop()
 
+    # Unload platforms
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+    # Clean up data
     if DOMAIN in hass.data and entry.entry_id in hass.data[DOMAIN]:
         hass.data[DOMAIN].pop(entry.entry_id)
 
-    if DOMAIN in hass.services.async_services().get(DOMAIN, {}):
-        hass.services.async_remove(DOMAIN, "update_now")
+    # Remove service (single_config_entry = true, so safe to remove on unload)
+    hass.services.async_remove(DOMAIN, "update_now")
 
-    return True
+    return unload_ok
