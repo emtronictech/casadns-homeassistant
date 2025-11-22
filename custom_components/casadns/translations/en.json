@@ -35,7 +35,7 @@
   "entity": {
     "sensor": {
       "public_ip": {
-        "name": "CasaDNS Public IP"
+        "name": "Public IP"
       }
     }
   },
