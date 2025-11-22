@@ -1,0 +1,35 @@
+{
+  "title": "CasaDNS",
+  "config": {
+    "step": {
+      "user": {
+        "title": "CasaDNS configuratie",
+        "description": "Stel de CasaDNS-integratie in. Vul je CasaDNS-domeinen en API-token in.",
+        "data": {
+          "domains": "Domeinen",
+          "token": "API-token",
+          "interval": "Update-interval (minuten)"
+        }
+      }
+    },
+    "error": {
+      "invalid_domains": "Vul minimaal één geldig domein in (kommagescheiden, zonder .casadns.eu).",
+      "invalid_token": "Vul een geldig API-token in."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "public_ip": {
+        "name": "CasaDNS Publiek IP",
+        "state": {
+        }
+      }
+    }
+  },
+  "services": {
+    "update_now": {
+      "name": "CasaDNS update forceren",
+      "description": "Forceer een CasaDNS DNS-update, negeer het gecachete publieke IP."
+    }
+  }
+}
