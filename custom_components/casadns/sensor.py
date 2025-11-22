@@ -73,8 +73,9 @@ class CasaDNSPublicIPSensor(SensorEntity):
             attrs[ATTR_LAST_ERROR] = self._manager.last_error
 
         if self._manager.last_updated:
-            attrs[ATTR_LAST_UPDATED] =
-                dt_util.as_local(self._manager.last_updated).isoformat()
+            attrs[ATTR_LAST_UPDATED] = dt_util.as_local(
+                self._manager.last_updated
+            ).isoformat()
 
         return attrs
 
