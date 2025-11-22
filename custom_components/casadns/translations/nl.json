@@ -17,19 +17,32 @@
       "invalid_token": "Vul een geldig API-token in."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "CasaDNS opties",
+        "description": "Pas de domeinen en het update-interval aan die door de CasaDNS-integratie worden gebruikt.",
+        "data": {
+          "domains": "Domeinen",
+          "interval": "Update-interval (minuten)"
+        }
+      }
+    },
+    "error": {
+      "invalid_domains": "Vul minimaal één geldig domein in (kommagescheiden, zonder .casadns.eu)."
+    }
+  },
   "entity": {
     "sensor": {
       "public_ip": {
-        "name": "CasaDNS Publiek IP",
-        "state": {
-        }
+        "name": "CasaDNS Publiek IP"
       }
     }
   },
   "services": {
     "update_now": {
       "name": "CasaDNS update forceren",
-      "description": "Forceer een CasaDNS DNS-update, negeer het gecachete publieke IP."
+      "description": "Forceer een CasaDNS DNS update en negeer het gecachete publieke IP."
     }
   }
 }
