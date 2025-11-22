@@ -16,21 +16,29 @@ from .const import (
 )
 
 def _normalize_domains(raw: str) -> str:
-    """Normalize CasaDNS domain labels.
+    """Normalize CasaDNS domains.
 
-    Input: " user1.casadns.eu , USER2 , user3 "
-    Output: "user1,user2,user3"
+    Input examples:
+      " home.casadns.eu , SERVER , office "
+      "home,server,office"
+
+    Output:
+      "home,server,office"
     """
     parts: list[str] = []
+
     for item in raw.split(","):
         label = item.strip().lower()
         if not label:
+            # Skip empty pieces (e.g. trailing comma)
             continue
 
+        # Strip optional .casadns.eu if user accidentally adds it
         if label.endswith(".casadns.eu"):
             label = label[: -len(".casadns.eu")]
 
-        parts.append(label)
+        if label:
+            parts.append(label)
 
     return ",".join(parts)
 
@@ -42,21 +50,29 @@ class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle the initial step."""
+        """Handle the initial configuration step."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            domains = _normalize_domains(user_input[CONF_DOMAINS])
+            raw_domains = user_input.get(CONF_DOMAINS, "")
+            token = user_input.get(CONF_TOKEN)
+            interval = user_input.get(CONF_INTERVAL, DEFAULT_INTERVAL)
 
-            if not domains:
+            normalized_domains = _normalize_domains(raw_domains)
+
+            # Basic validation: at least one non-empty domain
+            if not normalized_domains:
                 errors["base"] = "invalid_domains"
-            else:
+            elif not token:
+                errors["base"] = "invalid_token"
+
+            if not errors:
                 return self.async_create_entry(
                     title="CasaDNS",
                     data={
-                        CONF_DOMAINS: domains,
-                        CONF_TOKEN: user_input[CONF_TOKEN],
-                        CONF_INTERVAL: user_input[CONF_INTERVAL],
+                        CONF_DOMAINS: normalized_domains,
+                        CONF_TOKEN: token,
+                        CONF_INTERVAL: interval,
                     },
                 )
 
@@ -65,7 +81,7 @@ class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_DOMAINS,
                     description={
-                        "suggested_value": "user1,user2,user3"
+                        "suggested_value": "subdomain1,subdomain2,subdomain3",
                     },
                 ): str,
                 vol.Required(CONF_TOKEN): str,
@@ -77,4 +93,7 @@ class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=data_schema,
             errors=errors,
+            description_placeholders={
+                "domains_help": "Comma separated CasaDNS domains without .casadns.eu",
+            },
         )
