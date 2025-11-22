@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "CasaDNS configuratie",
-        "description": "Stel de CasaDNS-integratie in. Vul je CasaDNS-domeinen en API-token in.",
+        "description": "Stel de CasaDNS integratie in door je CasaDNS domein(en) en API-token in te vullen.",
         "data": {
           "domains": "Domeinen",
           "token": "API-token",
@@ -22,9 +22,9 @@
     "step": {
       "init": {
         "title": "CasaDNS opties",
-        "description": "Pas de domeinen en het update-interval aan die door de CasaDNS-integratie worden gebruikt.",
+        "description": "Pas de domeinen en het update-interval aan die door de CasaDNS integratie worden gebruikt.",
         "data": {
-          "domains": "Domeinen",
+          "domains": "Domein(en)",
           "interval": "Update-interval (minuten)"
         }
       }
