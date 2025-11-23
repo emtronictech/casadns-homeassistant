@@ -11,6 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import aiohttp_client, event
 from homeassistant.util import dt as dt_util
+from homeassistant.loader import async_get_integration
 
 from .const import (
     DOMAIN,
@@ -28,9 +29,10 @@ PLATFORMS: list[str] = ["sensor"]
 class CasaDNSManager:
     """Handle CasaDNS periodic updates and state."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, user_agent: str) -> None:
         self.hass = hass
         self.entry = entry
+        self._ua = user_agent
 
         # Merge data + options (options override data)
         cfg = dict(entry.data)
@@ -174,9 +176,8 @@ class CasaDNSManager:
                 timeout=10,
                 headers={
                     "Content-Type": "text/html",
-                    "User-Agent": "Home Assistant CasaDNS",
-                },
-                ssl=False,  # aanpassen/weg laten als je TLS goed is
+                    "User-Agent": self._ua
+                }
             ) as resp:
                 text = await resp.text()
                 self._last_status = resp.status
@@ -196,7 +197,10 @@ class CasaDNSManager:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up CasaDNS from a config entry."""
-    manager = CasaDNSManager(hass, entry)
+    integration = await async_get_integration(hass, DOMAIN)
+    ua = f"Home Assistant/CasaDNS v{integration.version}"
+    
+    manager = CasaDNSManager(hass, entry, ua)
     await manager.async_start()
 
     hass.data.setdefault(DOMAIN, {})
