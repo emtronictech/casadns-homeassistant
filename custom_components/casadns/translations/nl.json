@@ -8,7 +8,7 @@
         "data": {
           "domains": "Domeinen",
           "token": "API-token",
-          "interval": "Update-interval (minuten)"
+          "interval": "Update interval (minuten)"
         }
       }
     },
@@ -25,7 +25,7 @@
         "description": "Pas de domeinen en het update-interval aan die door de CasaDNS integratie worden gebruikt.",
         "data": {
           "domains": "Domein(en)",
-          "interval": "Update-interval (minuten)"
+          "interval": "Update interval (minuten)"
         }
       }
     },
@@ -36,11 +36,8 @@
   },
   "entity": {
     "sensor": {
-      "public_ipv4": {
-        "name": "IPv4 adres"
-      },
-      "public_ipv6": {
-        "name": "IPv6 adres"
+      "public_ip": {
+        "name": "IP adres"
       }
     }
   },
