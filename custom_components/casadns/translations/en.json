@@ -36,8 +36,11 @@
   },
   "entity": {
     "sensor": {
-      "public_ip": {
-        "name": "Public IP"
+      "public_ipv4": {
+        "name": "IPv4 address"
+      },
+      "public_ipv6": {
+        "name": "IPv6 address"
       }
     }
   },
