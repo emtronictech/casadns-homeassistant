@@ -49,13 +49,18 @@ class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            raw_domains = user_input.get(CONF_DOMAINS, "")
-            token = user_input.get(CONF_TOKEN)
-            interval = user_input.get(CONF_INTERVAL, DEFAULT_INTERVAL)
+            raw_domains = user_input.get(CONF_DOMAINS, "") or ""
+            token = (user_input.get(CONF_TOKEN) or "").strip()
+
+            # Always cast to int, fall back to DEFAULT_INTERVAL on errors
+            try:
+                interval = int(user_input.get(CONF_INTERVAL, DEFAULT_INTERVAL))
+            except (TypeError, ValueError):
+                interval = DEFAULT_INTERVAL
 
             normalized_domains = _normalize_domains(raw_domains)
 
-            # Basic validation: at least one non-empty domain
+            # Basic validation
             if not normalized_domains:
                 errors["base"] = "invalid_domains"
             elif not token:
@@ -77,7 +82,7 @@ class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 vol.Required(CONF_DOMAINS): str,
                 vol.Required(CONF_TOKEN): str,
-                vol.Optional(CONF_INTERVAL, default=DEFAULT_INTERVAL): vol.All(int, vol.Range(min=15)),
+                vol.Optional(CONF_INTERVAL, default=DEFAULT_INTERVAL): int,
             }
         )
 
@@ -110,19 +115,23 @@ class CasaDNSOptionsFlowHandler(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
 
         # Current values: options override data
-        current = dict(self._config_entry.data)
+        current: dict[str, Any] = dict(self._config_entry.data)
         current.update(self._config_entry.options or {})
 
         if user_input is not None:
-            raw_domains = user_input.get(CONF_DOMAINS, "")
-            interval = user_input.get(CONF_INTERVAL, DEFAULT_INTERVAL)
+            raw_domains = user_input.get(CONF_DOMAINS, "") or ""
+
+            try:
+                interval = int(user_input.get(CONF_INTERVAL, current.get(CONF_INTERVAL, DEFAULT_INTERVAL)))
+            except (TypeError, ValueError):
+                interval = current.get(CONF_INTERVAL, DEFAULT_INTERVAL)
 
             normalized_domains = _normalize_domains(raw_domains)
 
             if not normalized_domains:
                 errors["base"] = "invalid_domains"
             elif interval < 15:
-                errors["base"] = "invalid_interval"    
+                errors["base"] = "invalid_interval"
 
             if not errors:
                 # Only store options that can be changed
@@ -143,7 +152,7 @@ class CasaDNSOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_INTERVAL,
                     default=current.get(CONF_INTERVAL, DEFAULT_INTERVAL),
-                ): vol.All(int, vol.Range(min=15)),
+                ): int,
             }
         )
 
