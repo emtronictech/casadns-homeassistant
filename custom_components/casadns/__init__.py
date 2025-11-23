@@ -42,10 +42,10 @@ class CasaDNSManager:
 
         self._unsub_timer = None
 
+        # Last known IP (IPv6 if available, otherwise IPv4)
         self._last_ip: str | None = None
-        self._last_ipv4: str | None = None
-        self._last_ipv6: str | None = None
 
+        # Last CasaDNS call info
         self._last_status: int | None = None
         self._last_error: str | None = None
         self._last_updated = None  # datetime | None
@@ -54,18 +54,8 @@ class CasaDNSManager:
 
     @property
     def last_ip(self) -> str | None:
-        """Return last primary public IP (IPv4 preferred over IPv6)."""
+        """Return last known public IP (IPv6 preferred, otherwise IPv4)."""
         return self._last_ip
-
-    @property
-    def last_ipv4(self) -> str | None:
-        """Return last known public IPv4."""
-        return self._last_ipv4
-
-    @property
-    def last_ipv6(self) -> str | None:
-        """Return last known public IPv6."""
-        return self._last_ipv6
 
     @property
     def last_status(self) -> int | None:
@@ -107,121 +97,77 @@ class CasaDNSManager:
         await self.async_update_dns(force=False)
 
     async def async_update_dns(self, force: bool = False) -> None:
-        """Check current public IPv4/IPv6 and call CasaDNS if changed or forced."""
-        ipv4, ipv6 = await self._async_get_public_ips()
+        """Check current public IP and call CasaDNS if changed or forced."""
+        current_ip = await self._async_get_public_ip()
 
-        if ipv4 is None and ipv6 is None:
+        if current_ip is None:
             _LOGGER.warning(
-                "Could not determine public IPv4 or IPv6, skipping CasaDNS update"
+                "Could not determine public IP (IPv4/IPv6), skipping CasaDNS update"
             )
             return
 
-        current_primary = ipv4 or ipv6
-
-        if (
-            not force
-            and self._last_ipv4 == ipv4
-            and self._last_ipv6 == ipv6
-        ):
+        if not force and self._last_ip == current_ip:
             _LOGGER.debug(
-                "Public IPs unchanged (IPv4=%s, IPv6=%s), skipping CasaDNS update",
-                ipv4,
-                ipv6,
+                "Public IP unchanged (%s), skipping CasaDNS update", current_ip
             )
             return
 
-        old_ipv4 = self._last_ipv4
-        old_ipv6 = self._last_ipv6
+        old_ip = self._last_ip
+        self._last_ip = current_ip
 
-        self._last_ipv4 = ipv4
-        self._last_ipv6 = ipv6
-        self._last_ip = current_primary
+        _LOGGER.info("Public IP changed from %s to %s", old_ip, current_ip)
 
-        _LOGGER.info(
-            "Public IPs changed from IPv4=%s / IPv6=%s to IPv4=%s / IPv6=%s",
-            old_ipv4,
-            old_ipv6,
-            ipv4,
-            ipv6,
-        )
-
-        # Notify listeners (sensors) over state-change
+        # Notify listeners (e.g. sensor) of new IP
         for callback in list(self._listeners):
             try:
                 callback()
             except Exception:  # noqa: BLE001
                 _LOGGER.exception("Error in CasaDNS listener callback")
 
-        await self._async_call_casadns(ipv4=ipv4, ipv6=ipv6)
+        await self._async_call_casadns(ip=current_ip)
 
-    async def _async_get_public_ips(self) -> tuple[str | None, str | None]:
-        """Retrieve public IPv4 and IPv6 using external services.
+    async def _async_get_public_ip(self) -> str | None:
+        """Retrieve public IP using api64.ipify.org.
 
-        Returns:
-            (ipv4, ipv6) where each can be None if not available.
+        Returns IPv6 if available, otherwise IPv4.
         """
         session = aiohttp_client.async_get_clientsession(self.hass)
 
-        ipv4: str | None = None
-        ipv6: str | None = None
-
-        # IPv4
         try:
-            async with session.get("https://ipv4.api.ipify.org", timeout=10) as resp:
-                if resp.status == 200:
-                    ipv4 = (await resp.text()).strip()
-                else:
-                    _LOGGER.warning("Error getting public IPv4: HTTP %s", resp.status)
+            async with session.get("https://api64.ipify.org", timeout=10) as resp:
+                if resp.status != 200:
+                    _LOGGER.warning(
+                        "Error getting public IP from api64.ipify.org: HTTP %s",
+                        resp.status,
+                    )
+                    return None
+                return (await resp.text()).strip()
         except (ClientError, asyncio.TimeoutError) as err:
-            _LOGGER.error("Error getting public IPv4: %s", err)
+            _LOGGER.error("Error getting public IP from api64.ipify.org: %s", err)
+            self._last_error = str(err)
+            return None
 
-        # IPv6
-        try:
-            async with session.get("https://ipv6.api.ipify.org", timeout=10) as resp:
-                if resp.status == 200:
-                    ipv6 = (await resp.text()).strip()
-                else:
-                    _LOGGER.warning("Error getting public IPv6: HTTP %s", resp.status)
-        except (ClientError, asyncio.TimeoutError) as err:
-            _LOGGER.error("Error getting public IPv6: %s", err)
-
-        return ipv4, ipv6
-
-    async def _async_call_casadns(
-        self,
-        ipv4: str | None = None,
-        ipv6: str | None = None,
-    ) -> None:
-        """Perform CasaDNS update with clear + IP updates in one call."""
+    async def _async_call_casadns(self, ip: str | None) -> None:
+        """Perform CasaDNS update call with clear + current IP."""
         session = aiohttp_client.async_get_clientsession(self.hass)
-    
+
         base = (
             "https://casadns.eu/update"
             f"?domains={self._domains}"
             f"&token={self._token}"
         )
-    
+
         params: list[str] = []
-    
-        # Always clear existing A and AAAA
+
+        # Always clear existing records (A + AAAA)
         params.append("clear=true")
-    
-        # ip= accepts IPv4 or IPv6
-        if ipv4:
-            params.append(f"ip={ipv4}")
-        elif ipv6:
-            params.append(f"ip={ipv6}")
-    
-        # If both available, add ipv6 separately
-        if ipv6 and ipv4:
-            params.append(f"ipv6={ipv6}")
-        elif ipv6 and not ipv4:
-            # If only IPv6 exists → ip= already carries IPv6, but ipv6= is optional
-            # Using ipv6= improves clarity
-            params.append(f"ipv6={ipv6}")
-    
+
+        # If we have an IP, send it; otherwise this will just clear records
+        if ip:
+            params.append(f"ip={ip}")
+
         url = base + "&" + "&".join(params)
-    
+
         try:
             async with session.get(
                 url,
@@ -230,22 +176,19 @@ class CasaDNSManager:
                     "Content-Type": "text/html",
                     "User-Agent": "Home Assistant CasaDNS",
                 },
-                ssl=False,
+                ssl=False,  # aanpassen/weg laten als je TLS goed is
             ) as resp:
                 text = await resp.text()
                 self._last_status = resp.status
                 self._last_updated = dt_util.utcnow()
                 self._last_error = None
-    
+
                 if resp.status != 200:
                     _LOGGER.error(
-                        "CasaDNS update failed: HTTP %s - %s",
-                        resp.status,
-                        text,
+                        "CasaDNS update failed: HTTP %s - %s", resp.status, text
                     )
                 else:
                     _LOGGER.debug("CasaDNS update OK: %s", text)
-    
         except (ClientError, asyncio.TimeoutError) as err:
             self._last_error = str(err)
             _LOGGER.error("Error calling CasaDNS: %s", err)
@@ -265,10 +208,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.services.async_register(DOMAIN, "update_now", handle_update_now)
 
-    # Forward to platforms (sensor)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Reload entry when options are updated
     entry.async_on_unload(
         entry.add_update_listener(async_reload_entry)
     )
