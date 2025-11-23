@@ -1,13 +1,17 @@
 {
   "domain": "casadns",
   "name": "CasaDNS DDNS",
-  "codeowners": ["@emtronictech"],
+  "codeowners": [
+    "@emtronictech"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/emtronictech/casadns-homeassistant",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/emtronictech/casadns-homeassistant/issues",
-  "loggers": ["custom_components.casadns"],
+  "loggers": [
+    "custom_components.casadns"
+  ],
   "requirements": [],
   "single_config_entry": true,
-  "version": "2025.11.5"
+  "version": "2025.11.7"
 }
