@@ -44,7 +44,7 @@
   "services": {
     "update_now": {
       "name": "CasaDNS update forceren",
-      "description": "Forceer een CasaDNS DNS update en negeer het gecachete publieke IP."
+      "description": "Laat CasaDNS direct het huidige publieke IP-adres controleren en de ingestelde DNS-records bijwerken. Wanneer response data wordt gevraagd, wordt de huidige CasaDNS-status teruggegeven."
     }
   }
 }
