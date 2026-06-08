@@ -74,9 +74,16 @@ class CasaDNSManager:
         """Return datetime of last CasaDNS call."""
         return self._last_updated
 
-    def register_listener(self, callback: Callable[[], None]) -> None:
+    def register_listener(self, callback: Callable[[], None]) -> Callable[[], None]:
         """Register a callback to be called when data changes."""
         self._listeners.append(callback)
+    
+        def remove_listener() -> None:
+            """Remove a registered listener."""
+            if callback in self._listeners:
+                self._listeners.remove(callback)
+    
+        return remove_listener
 
     async def async_start(self) -> None:
         """Start periodic update task."""
@@ -87,6 +94,14 @@ class CasaDNSManager:
 
         # Initial run at startup
         await self.async_update_dns(force=True)
+
+    def _notify_listeners(self) -> None:
+        """Notify registered listeners that CasaDNS state changed."""
+        for callback in list(self._listeners):
+            try:
+                callback()
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Error in CasaDNS listener callback")
 
     async def async_stop(self) -> None:
         """Stop periodic update task."""
@@ -101,32 +116,36 @@ class CasaDNSManager:
     async def async_update_dns(self, force: bool = False) -> None:
         """Check current public IP and call CasaDNS if changed or forced."""
         current_ip = await self._async_get_public_ip()
-
+    
         if current_ip is None:
+            self._last_status = None
+        
+            if self._last_error is None:
+                self._last_error = "Could not determine public IP"
+        
+            self._last_updated = dt_util.utcnow()
+        
             _LOGGER.warning(
                 "Could not determine public IP (IPv4/IPv6), skipping CasaDNS update"
             )
+        
+            self._notify_listeners()
             return
-
+    
         if not force and self._last_ip == current_ip:
             _LOGGER.debug(
                 "Public IP unchanged (%s), skipping CasaDNS update", current_ip
             )
             return
-
+    
         old_ip = self._last_ip
         self._last_ip = current_ip
-
+    
         _LOGGER.info("Public IP changed from %s to %s", old_ip, current_ip)
-
-        # Notify listeners (e.g. sensor) of new IP
-        for callback in list(self._listeners):
-            try:
-                callback()
-            except Exception:  # noqa: BLE001
-                _LOGGER.exception("Error in CasaDNS listener callback")
-
+    
         await self._async_call_casadns(ip=current_ip)
+    
+        self._notify_listeners()
 
     async def _async_get_public_ip(self) -> str | None:
         """Retrieve public IP using api64.ipify.org.
@@ -138,6 +157,10 @@ class CasaDNSManager:
         try:
             async with session.get("https://api64.ipify.org", timeout=10) as resp:
                 if resp.status != 200:
+                    self._last_error = (
+                        f"Error getting public IP from api64.ipify.org: HTTP {resp.status}"
+                    )
+                
                     _LOGGER.warning(
                         "Error getting public IP from api64.ipify.org: HTTP %s",
                         resp.status,
@@ -152,46 +175,50 @@ class CasaDNSManager:
     async def _async_call_casadns(self, ip: str | None) -> None:
         """Perform CasaDNS update call with clear + current IP."""
         session = aiohttp_client.async_get_clientsession(self.hass)
-
+    
         base = (
             "https://casadns.eu/update"
             f"?domains={self._domains}"
             f"&token={self._token}"
         )
-
+    
         params: list[str] = []
-
+    
         # Always clear existing records (A + AAAA)
         params.append("clear=true")
-
-        # If we have an IP, send it; otherwise this will just clear records
+    
+        # If we have an IP, send it
         if ip:
             params.append(f"ip={ip}")
-
+    
         url = base + "&" + "&".join(params)
-
+    
         try:
             async with session.get(
                 url,
                 timeout=10,
                 headers={
                     "Content-Type": "text/html",
-                    "User-Agent": self._ua
-                }
+                    "User-Agent": self._ua,
+                },
             ) as resp:
                 text = await resp.text()
                 self._last_status = resp.status
                 self._last_updated = dt_util.utcnow()
-                self._last_error = None
-
+    
                 if resp.status != 200:
+                    self._last_error = f"CasaDNS update failed: HTTP {resp.status}"
                     _LOGGER.error(
                         "CasaDNS update failed: HTTP %s - %s", resp.status, text
                     )
                 else:
+                    self._last_error = None
                     _LOGGER.debug("CasaDNS update OK: %s", text)
+    
         except (ClientError, asyncio.TimeoutError) as err:
+            self._last_status = None
             self._last_error = str(err)
+            self._last_updated = dt_util.utcnow()
             _LOGGER.error("Error calling CasaDNS: %s", err)
 
 
