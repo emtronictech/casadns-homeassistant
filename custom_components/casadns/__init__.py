@@ -8,7 +8,7 @@ from typing import Any, Callable
 from aiohttp.client_exceptions import ClientError
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.helpers import aiohttp_client, event
 from homeassistant.util import dt as dt_util
 from homeassistant.loader import async_get_integration
@@ -259,13 +259,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = manager
 
-    async def handle_update_now(call: ServiceCall) -> None:
+    async def handle_update_now(call: ServiceCall) -> ServiceResponse:
         """Handle manual service call to force an update."""
         await manager.async_update_dns(force=True)
     
-        _LOGGER.debug("CasaDNS manual update result: %s", manager.as_dict())
+        result = manager.as_dict()
+        _LOGGER.debug("CasaDNS manual update result: %s", result)
+    
+        if call.return_response:
+            return result
+    
+        return None
 
-    hass.services.async_register(DOMAIN, "update_now", handle_update_now)
+    hass.services.async_register(
+        DOMAIN,
+        "update_now",
+        handle_update_now,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
