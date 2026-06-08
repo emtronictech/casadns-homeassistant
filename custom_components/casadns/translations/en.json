@@ -44,7 +44,7 @@
   "services": {
     "update_now": {
       "name": "Force CasaDNS update",
-      "description": "Force a CasaDNS DNS update, ignoring the cached public IP."
+      "description": "Force CasaDNS to check the current public IP address and update the configured DNS records. When response data is requested, the current CasaDNS status is returned."
     }
   }
 }
