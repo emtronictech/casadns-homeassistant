@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import voluptuous as vol
@@ -16,25 +17,34 @@ from .const import (
     DEFAULT_INTERVAL,
 )
 
+DOMAIN_LABEL_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
 def _normalize_domains(raw: str) -> str:
     """Normalize CasaDNS domains."""
     parts: list[str] = []
 
     for item in raw.split(","):
-        label = item.strip().lower()
+        label = item.strip().lower().strip(".")
         if not label:
-            # Skip empty pieces (e.g. trailing comma)
             continue
 
-        # Strip optional .casadns.eu if user accidentally adds it
         if label.endswith(".casadns.eu"):
-            label = label[: -len(".casadns.eu")]
+            label = label[: -len(".casadns.eu")].strip(".")
 
-        if label:
+        if label and label not in parts:
             parts.append(label)
 
     return ",".join(parts)
+
+def _domains_are_valid(domains: str) -> bool:
+    """Return whether all CasaDNS domains are valid labels."""
+    if not domains:
+        return False
+
+    return all(
+        DOMAIN_LABEL_PATTERN.fullmatch(domain) is not None
+        for domain in domains.split(",")
+    )
 
 
 class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -61,7 +71,7 @@ class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             normalized_domains = _normalize_domains(raw_domains)
 
             # Basic validation
-            if not normalized_domains:
+            if not _domains_are_valid(normalized_domains):
                 errors["base"] = "invalid_domains"
             elif not token:
                 errors["base"] = "invalid_token"
@@ -128,7 +138,7 @@ class CasaDNSOptionsFlowHandler(config_entries.OptionsFlow):
 
             normalized_domains = _normalize_domains(raw_domains)
 
-            if not normalized_domains:
+            if not _domains_are_valid(normalized_domains):
                 errors["base"] = "invalid_domains"
             elif interval < 15:
                 errors["base"] = "invalid_interval"
