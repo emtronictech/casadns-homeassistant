@@ -19,6 +19,7 @@ from .const import (
 
 DOMAIN_LABEL_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
+
 def _normalize_domains(raw: str) -> str:
     """Normalize CasaDNS domains."""
     parts: list[str] = []
@@ -35,6 +36,7 @@ def _normalize_domains(raw: str) -> str:
             parts.append(label)
 
     return ",".join(parts)
+
 
 def _domains_are_valid(domains: str) -> bool:
     """Return whether all CasaDNS domains are valid labels."""
@@ -56,6 +58,9 @@ class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle the initial configuration step."""
+        await self.async_set_unique_id(DOMAIN)
+        self._abort_if_unique_id_configured()
+        
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -64,7 +69,12 @@ class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             # Always cast to int, fall back to DEFAULT_INTERVAL on errors
             try:
-                interval = int(user_input.get(CONF_INTERVAL, DEFAULT_INTERVAL))
+                interval = int(
+                    user_input.get(
+                        CONF_INTERVAL,
+                        current.get(CONF_INTERVAL, DEFAULT_INTERVAL),
+                    )
+                )
             except (TypeError, ValueError):
                 interval = DEFAULT_INTERVAL
 
