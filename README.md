@@ -64,20 +64,20 @@ You will be asked for the following values.
 
 ### Domains
 
-Enter one CasaDNS domain or multiple comma-separated CasaDNS domains.
+Enter one CasaDNS subdomain or multiple comma-separated CasaDNS subdomains.
 
-Do not include the `.casadns.eu` suffix. The CasaDNS backend applies this automatically.
+Do not enter a full domain name. Only enter the CasaDNS subdomain part.
 
-Example:
+Examples:
 
 ```text
-home
+username
 ```
 
 Or multiple domains:
 
 ```text
-home,garage,office
+username,username.camera,username.nas
 ```
 
 ### Token
@@ -184,9 +184,11 @@ Also check whether the integration is loaded successfully under Settings → Dev
 
 Your CasaDNS token is stored in Home Assistant's config entry storage.
 
-Do not share Home Assistant logs, diagnostics or configuration files publicly if they may contain private CasaDNS details.
+The token is sent to CasaDNS using an `Authorization: Bearer` header. It is not included in the request URL. This helps prevent the token from appearing in URL logs, proxy logs or browser-style request logs.
 
-Debug logs may include configured domain names and CasaDNS status information.
+Do not share Home Assistant diagnostics or configuration files publicly if they may contain private CasaDNS details.
+
+Debug logs may include configured domain names and CasaDNS status information, but the CasaDNS token is not included in the integration's debug output.
 
 ## Support
 
