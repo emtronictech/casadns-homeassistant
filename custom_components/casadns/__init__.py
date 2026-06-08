@@ -207,7 +207,6 @@ class CasaDNSManager:
     
         params: dict[str, str] = {
             "domains": self._domains,
-            "token": self._token,
             "clear": "true",
         }
     
@@ -220,8 +219,9 @@ class CasaDNSManager:
                 params=params,
                 timeout=10,
                 headers={
-                    "Content-Type": "text/html",
+                    "Authorization": f"Bearer {self._token}",
                     "User-Agent": self._ua,
+                    "Content-Type": "text/html"
                 },
             ) as resp:
                 text = await resp.text()
