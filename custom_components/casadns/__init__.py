@@ -176,26 +176,19 @@ class CasaDNSManager:
         """Perform CasaDNS update call with clear + current IP."""
         session = aiohttp_client.async_get_clientsession(self.hass)
     
-        base = (
-            "https://casadns.eu/update"
-            f"?domains={self._domains}"
-            f"&token={self._token}"
-        )
+        params: dict[str, str] = {
+            "domains": self._domains,
+            "token": self._token,
+            "clear": "true",
+        }
     
-        params: list[str] = []
-    
-        # Always clear existing records (A + AAAA)
-        params.append("clear=true")
-    
-        # If we have an IP, send it
         if ip:
-            params.append(f"ip={ip}")
-    
-        url = base + "&" + "&".join(params)
+            params["ip"] = ip
     
         try:
             async with session.get(
-                url,
+                "https://casadns.eu/update",
+                params=params,
                 timeout=10,
                 headers={
                     "Content-Type": "text/html",
