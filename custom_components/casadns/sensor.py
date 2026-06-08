@@ -14,6 +14,7 @@ from .const import (
     ATTR_LAST_STATUS,
     ATTR_LAST_ERROR,
     ATTR_LAST_UPDATED,
+    ATTR_STATUS,
 )
 
 
@@ -64,6 +65,8 @@ class CasaDNSPublicIPSensor(SensorEntity):
         """Return extra attributes."""
         attrs: dict[str, Any] = {}
 
+        if self._manager.status:
+            attrs[ATTR_STATUS] = self._manager.status
         if self._manager.last_ip:
             attrs[ATTR_PUBLIC_IP] = self._manager.last_ip
         if self._manager.last_status is not None:
