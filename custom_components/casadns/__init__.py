@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Callable
 
 from aiohttp.client_exceptions import ClientError
@@ -50,7 +50,8 @@ class CasaDNSManager:
         # Last CasaDNS call info
         self._last_status: int | None = None
         self._last_error: str | None = None
-        self._last_updated = None  # datetime | None
+        self._last_updated: datetime | None = None
+        self._status: str | None = None
 
         self._listeners: list[Callable[[], None]] = []
 
@@ -70,10 +71,15 @@ class CasaDNSManager:
         return self._last_error
 
     @property
-    def last_updated(self):
-        """Return datetime of last CasaDNS call."""
+    def last_updated(self) -> datetime | None:
+        """Return datetime of last CasaDNS check."""
         return self._last_updated
 
+    @property
+    def status(self) -> str | None:
+        """Return current CasaDNS status."""
+        return self._status
+    
     def register_listener(self, callback: Callable[[], None]) -> Callable[[], None]:
         """Register a callback to be called when data changes."""
         self._listeners.append(callback)
@@ -119,6 +125,7 @@ class CasaDNSManager:
     
         if current_ip is None:
             self._last_status = None
+            self._status = "ip_error"
     
             if self._last_error is None:
                 self._last_error = "Could not determine public IP"
@@ -134,6 +141,8 @@ class CasaDNSManager:
     
         if not force and self._last_ip == current_ip:
             self._last_error = None
+            self._status = "unchanged"
+            self._last_updated = dt_util.utcnow()
     
             _LOGGER.debug(
                 "Public IP unchanged (%s), skipping CasaDNS update", current_ip
@@ -205,15 +214,18 @@ class CasaDNSManager:
                 self._last_updated = dt_util.utcnow()
     
                 if resp.status != 200:
+                    self._status = "update_error"
                     self._last_error = f"CasaDNS update failed: HTTP {resp.status}"
                     _LOGGER.error(
                         "CasaDNS update failed: HTTP %s - %s", resp.status, text
                     )
                 else:
+                    self._status = "ok"
                     self._last_error = None
                     _LOGGER.debug("CasaDNS update OK: %s", text)
     
         except (ClientError, asyncio.TimeoutError) as err:
+            self._status = "update_error"
             self._last_status = None
             self._last_error = str(err)
             self._last_updated = dt_util.utcnow()
