@@ -10,8 +10,8 @@ from aiohttp.client_exceptions import ClientError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.helpers import aiohttp_client, event
-from homeassistant.util import dt as dt_util
 from homeassistant.loader import async_get_integration
+from homeassistant.util import dt as dt_util
 
 from .const import (
     DOMAIN,
@@ -95,16 +95,16 @@ class CasaDNSManager:
             "domains": self._domains,
             "interval_minutes": self._interval_minutes,
         }
-    
+
     def register_listener(self, callback: Callable[[], None]) -> Callable[[], None]:
         """Register a callback to be called when data changes."""
         self._listeners.append(callback)
-    
+
         def remove_listener() -> None:
             """Remove a registered listener."""
             if callback in self._listeners:
                 self._listeners.remove(callback)
-    
+                
         return remove_listener
 
     async def async_start(self) -> None:
@@ -138,20 +138,20 @@ class CasaDNSManager:
     async def async_update_dns(self, force: bool = False) -> None:
         """Check current public IP and call CasaDNS if changed or forced."""
         current_ip = await self._async_get_public_ip()
-    
+        
         if current_ip is None:
             self._last_status = None
             self._status = "ip_error"
     
             if self._last_error is None:
                 self._last_error = "Could not determine public IP"
-    
+
             self._last_updated = dt_util.utcnow()
-    
+
             _LOGGER.warning(
                 "Could not determine public IP (IPv4/IPv6), skipping CasaDNS update"
             )
-    
+            
             self._notify_listeners()
             return
     
@@ -163,7 +163,7 @@ class CasaDNSManager:
             _LOGGER.debug(
                 "Public IP unchanged (%s), skipping CasaDNS update", current_ip
             )
-    
+            
             self._notify_listeners()
             return
     
@@ -173,10 +173,9 @@ class CasaDNSManager:
         _LOGGER.info("Public IP changed from %s to %s", old_ip, current_ip)
     
         await self._async_call_casadns(ip=current_ip)
-    
+        
         self._notify_listeners()
         
-
     async def _async_get_public_ip(self) -> str | None:
         """Retrieve public IP using api64.ipify.org.
 
@@ -271,12 +270,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
         return None
 
-    hass.services.async_register(
-        DOMAIN,
-        "update_now",
-        handle_update_now,
-        supports_response=SupportsResponse.OPTIONAL,
-    )
+    if not hass.services.has_service(DOMAIN, "update_now"):
+        hass.services.async_register(
+            DOMAIN,
+            "update_now",
+            handle_update_now,
+            supports_response=SupportsResponse.OPTIONAL,
+        )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -289,16 +289,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a CasaDNS config entry."""
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+    if not unload_ok:
+        return False
+
     manager: CasaDNSManager | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)
     if manager:
         await manager.async_stop()
 
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-
     if DOMAIN in hass.data and entry.entry_id in hass.data[DOMAIN]:
         hass.data[DOMAIN].pop(entry.entry_id)
 
-    hass.services.async_remove(DOMAIN, "update_now")
+    if hass.services.has_service(DOMAIN, "update_now"):
+        hass.services.async_remove(DOMAIN, "update_now")
 
     return unload_ok
 
