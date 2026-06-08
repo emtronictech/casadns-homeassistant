@@ -13,7 +13,7 @@
       }
     },
     "error": {
-      "invalid_domains": "Please enter one or more valid CasaDNS subdomains only, for example home or home.camera. Do not enter a full domain name."
+      "invalid_domains": "Please enter one or more valid CasaDNS subdomains only, for example home or home.camera. Do not enter a full domain name.",
       "invalid_token": "Please enter a valid API token.",
       "invalid_interval": "Interval must be 15 minutes or higher."
     }
