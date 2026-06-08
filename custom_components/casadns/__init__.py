@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Callable
+from typing import Any, Callable
 
 from aiohttp.client_exceptions import ClientError
 
@@ -79,6 +79,22 @@ class CasaDNSManager:
     def status(self) -> str | None:
         """Return current CasaDNS status."""
         return self._status
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return current CasaDNS state as a dictionary."""
+        return {
+            "status": self._status,
+            "public_ip": self._last_ip,
+            "last_status": self._last_status,
+            "last_error": self._last_error,
+            "last_updated": (
+                self._last_updated.isoformat()
+                if self._last_updated is not None
+                else None
+            ),
+            "domains": self._domains,
+            "interval_minutes": self._interval_minutes,
+        }
     
     def register_listener(self, callback: Callable[[], None]) -> Callable[[], None]:
         """Register a callback to be called when data changes."""
@@ -246,6 +262,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def handle_update_now(call: ServiceCall) -> None:
         """Handle manual service call to force an update."""
         await manager.async_update_dns(force=True)
+    
+        _LOGGER.debug("CasaDNS manual update result: %s", manager.as_dict())
 
     hass.services.async_register(DOMAIN, "update_now", handle_update_now)
 
