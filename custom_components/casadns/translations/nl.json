@@ -13,7 +13,7 @@
       }
     },
     "error": {
-      "invalid_domains": "Vul één of meer geldige CasaDNS-subdomeinen in, bijvoorbeeld home of home.camera. Vul geen volledige domeinnaam in."
+      "invalid_domains": "Vul één of meer geldige CasaDNS-subdomeinen in, bijvoorbeeld home of home.camera. Vul geen volledige domeinnaam in.",
       "invalid_token": "Vul een geldig API-token in.",
       "invalid_interval": "Interval moet minimaal 15 minuten zijn."
     }
