@@ -44,11 +44,14 @@ class CasaDNSPublicIPSensor(SensorEntity):
 
     async def async_added_to_hass(self) -> None:
         """Register callbacks when entity is added."""
-
+    
         def _handle_update() -> None:
             self.async_write_ha_state()
-
-        self._manager.register_listener(_handle_update)
+    
+        self.async_on_remove(
+            self._manager.register_listener(_handle_update)
+        )
+    
         self.async_write_ha_state()
 
     @property
