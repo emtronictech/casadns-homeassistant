@@ -25,28 +25,34 @@ def _normalize_domains(raw: str) -> str:
     parts: list[str] = []
 
     for item in raw.split(","):
-        label = item.strip().lower().strip(".")
-        if not label:
+        domain = item.strip().lower()
+        if not domain:
             continue
 
-        if label.endswith(".casadns.eu"):
-            label = label[: -len(".casadns.eu")].strip(".")
-
-        if label and label not in parts:
-            parts.append(label)
+        if domain and domain not in parts:
+            parts.append(domain)
 
     return ",".join(parts)
 
 
 def _domains_are_valid(domains: str) -> bool:
-    """Return whether all CasaDNS domains are valid labels."""
+    """Return whether all CasaDNS domains are valid subdomains."""
     if not domains:
         return False
 
-    return all(
-        DOMAIN_LABEL_PATTERN.fullmatch(domain) is not None
-        for domain in domains.split(",")
-    )
+    for domain in domains.split(","):
+        labels = domain.split(".")
+
+        if len(labels) > 2:
+            return False
+
+        if not all(
+            DOMAIN_LABEL_PATTERN.fullmatch(label) is not None
+            for label in labels
+        ):
+            return False
+
+    return True
 
 
 class CasaDNSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
