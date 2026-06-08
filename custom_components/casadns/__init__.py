@@ -119,23 +119,27 @@ class CasaDNSManager:
     
         if current_ip is None:
             self._last_status = None
-        
+    
             if self._last_error is None:
                 self._last_error = "Could not determine public IP"
-        
+    
             self._last_updated = dt_util.utcnow()
-        
+    
             _LOGGER.warning(
                 "Could not determine public IP (IPv4/IPv6), skipping CasaDNS update"
             )
-        
+    
             self._notify_listeners()
             return
     
         if not force and self._last_ip == current_ip:
+            self._last_error = None
+    
             _LOGGER.debug(
                 "Public IP unchanged (%s), skipping CasaDNS update", current_ip
             )
+    
+            self._notify_listeners()
             return
     
         old_ip = self._last_ip
@@ -146,6 +150,7 @@ class CasaDNSManager:
         await self._async_call_casadns(ip=current_ip)
     
         self._notify_listeners()
+        
 
     async def _async_get_public_ip(self) -> str | None:
         """Retrieve public IP using api64.ipify.org.
